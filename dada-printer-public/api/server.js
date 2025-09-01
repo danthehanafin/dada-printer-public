@@ -12,11 +12,14 @@ const LOCAL_PRINTER_URL = 'https://2442d018d2fd.ngrok-free.app/print';
 const SECRET_KEY = 'dada-is-art'; 
 const GEMINI_API_KEY = "AIzaSyDB_pV1tmjiguKM9bSBu6xJyqQ-WaPBcwo";
 
-// --- THE FIX IS HERE ---
 // We are explicitly telling the server to allow requests from your live website.
 const corsOptions = {
   origin: 'https://danhanaf.in',
 };
+
+// --- THE FIX IS HERE ---
+// This line explicitly handles the browser's preflight "permission check" (OPTIONS request).
+app.options('*', cors(corsOptions)); 
 
 // Middleware
 app.use(cors(corsOptions));
