@@ -1,0 +1,33 @@
+{
+    "headers": [
+        {
+            "source": "/api/server",
+            "headers": [
+                { "key": "Access-Control-Allow-Credentials", "value": "true" },
+                { "key": "Access-Control-Allow-Origin", "value": "https://danhanaf.in" },
+                { "key": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+                { "key": "Access-Control-Allow-Headers", "value": "X-Requested-With, Content-Type, Authorization" }
+            ]
+        }
+    ]
+}
+```
+
+### What to Do Next (The Final Deployment)
+
+You are on the final step. This will resolve the CORS error for good.
+
+**Step 1: Add the New File to Your Project**
+
+1.  Copy the code from the `Vercel Configuration` file in the Canvas above.
+2.  On your Mac, open your `dada-printer-public` folder.
+3.  Create a **new file** in the main `dada-printer-public` folder (at the same level as your `api` folder) and name it **`vercel.json`**.
+4.  Paste the code you copied into this new file and save it.
+
+Your final folder structure should now look like this:
+
+```
+dada-printer-public/
+├── api/
+│   └── server.js
+└── vercel.json   <-- The new file you just added
