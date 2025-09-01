@@ -8,22 +8,23 @@ const fetch = require('node-fetch'); // Vercel may need this explicit require
 const app = express();
 
 // --- CONFIGURATION - ADD YOUR SECRETS HERE ---
-// This must be the public URL you get from running ngrok on your Mac.
 const LOCAL_PRINTER_URL = 'https://2442d018d2fd.ngrok-free.app/print'; 
-// This is a simple password to ensure only this server can talk to your home server. It must match the one in local_server.js.
 const SECRET_KEY = 'dada-is-art'; 
-// Place your Google AI API Key here.
 const GEMINI_API_KEY = "AIzaSyDB_pV1tmjiguKM9bSBu6xJyqQ-WaPBcwo";
 
+// --- THE FIX IS HERE ---
+// We are explicitly telling the server to allow requests from your live website.
+const corsOptions = {
+  origin: 'https://danhanaf.in',
+};
 
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // The main endpoint that the public website will call
-app.post('/api/server/generate-and-print', async (req, res) => {
+app.post('/', async (req, res) => {
     const { firstName, lastInitial, userPrompt } = req.body;
-    // Get the user's IP address from the request headers. 'x-forwarded-for' is standard for services like Vercel.
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     if (!firstName || !lastInitial || !userPrompt) {
@@ -32,7 +33,7 @@ app.post('/api/server/generate-and-print', async (req, res) => {
 
     try {
         // 1. Get User Location from their IP Address
-        let location = 'An unknown location'; // Default location
+        let location = 'An unknown location'; 
         if (ip) {
             const geoResponse = await fetch(`https://ipapi.co/${ip}/json/`);
             if (geoResponse.ok) {
@@ -64,13 +65,12 @@ app.post('/api/server/generate-and-print', async (req, res) => {
         if (!artText) throw new Error('AI did not return valid art.');
 
         // 3. Assemble the final text block to be printed
-        const initCommand = Buffer.from([0x1b, 0x40]); // ESC @ to reset printer
+        const initCommand = Buffer.from([0x1b, 0x40]);
         const nameLine = `${firstName} ${lastInitial}.`;
         const locationLine = `from ${location}`;
         const feedBlock = '\n'.repeat(5);
         const finalOutput = `${userPrompt}\n\n${artText}\n\n${nameLine}\n${locationLine}${feedBlock}`;
         
-        // We combine the reset command with the text content.
         const dataToSend = Buffer.concat([initCommand, Buffer.from(finalOutput)]);
 
         // 4. Securely send the job to your local printer server via the ngrok tunnel
@@ -81,7 +81,6 @@ app.post('/api/server/generate-and-print', async (req, res) => {
                 'Content-Type': 'application/json',
                 'x-secret-key': SECRET_KEY
             },
-            // We send the data as a binary string to preserve the raw printer commands.
             body: JSON.stringify({ printData: dataToSend.toString('binary') })
         });
 
@@ -100,6 +99,5 @@ app.post('/api/server/generate-and-print', async (req, res) => {
 });
 
 // This is required for Vercel to handle the routing correctly.
-// It tells Vercel to treat this file as the main handler for any requests to '/api/server'.
 module.exports = app;
 
