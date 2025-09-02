@@ -2,7 +2,6 @@
 // and securely sends the final print job to your home server.
 
 const express = require('express');
-const cors = require('cors');
 const fetch = require('node-fetch'); // Vercel may need this explicit require
 
 const app = express();
@@ -12,23 +11,29 @@ const LOCAL_PRINTER_URL = 'https://2442d018d2fd.ngrok-free.app/print';
 const SECRET_KEY = 'dada-is-art'; 
 const GEMINI_API_KEY = "AIzaSyDB_pV1tmjiguKM9bSBu6xJyqQ-WaPBcwo";
 
-// --- THE FINAL CORS FIX IS HERE ---
-// This configuration explicitly tells the server how to handle permission checks (preflight requests).
+// --- THE FINAL, MANUAL CORS FIX IS HERE ---
+// This custom middleware manually sets the required headers for every request.
+// It will run BEFORE any other route handlers.
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', 'https://danhanaf.in');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-// 1. Define the "guest list" of allowed websites.
-const corsOptions = {
-  origin: 'https://danhanaf.in',
-};
+  // If this is a preflight (OPTIONS) request, the browser is just asking for permission.
+  // We send an immediate "OK" response and stop processing.
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
-// 2. Explicitly handle the browser's "permission call" (the OPTIONS request).
-// This must come BEFORE your main route handler.
-app.options('/', cors(corsOptions));
+  // If it's not a preflight request, continue to the next middleware/route handler.
+  next();
+});
 
-// 3. Use middleware for all other requests.
-app.use(cors(corsOptions));
+// We still need this to parse the JSON body of POST requests.
 app.use(express.json());
 
-// The main endpoint that the public website will call
+// The main endpoint that the public website will call.
+// Note we removed the `cors()` package calls from here as we are handling it manually above.
 app.post('/', async (req, res) => {
     const { firstName, lastInitial, userPrompt } = req.body;
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -67,7 +72,7 @@ app.post('/', async (req, res) => {
         const aiApiResponse = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (!aiApiResponse.ok) throw new Error(`Gemini API Error: ${aiApiResponse.statusText}`);
         const result = await aiApiResponse.json();
-        const artText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        const artText = result.candidates?[0]?.content?.parts?[0]?.text;
         if (!artText) throw new Error('AI did not return valid art.');
 
         // Assemble the final text block to be printed
