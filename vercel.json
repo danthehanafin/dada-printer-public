@@ -1,11 +1,8 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/api/server(.*)", "destination": "/api/server.js" }
-  ],
   "headers": [
     {
-      "source": "/api/server(.*)",
+      "source": "/api/server(\\/)?",
       "headers": [
         { "key": "Access-Control-Allow-Credentials", "value": "true" },
         { "key": "Access-Control-Allow-Origin", "value": "https://danhanaf.in" },
@@ -13,6 +10,9 @@
         { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
       ]
     }
+  ],
+  "rewrites": [
+    { "source": "/api/server(\\/)?", "destination": "/api/server.js" }
   ]
 }
 
