@@ -1,30 +1,34 @@
+// This is the "Waiter" server. It runs online, takes requests, talks to the AI,
+// and securely sends the final print job to your home server.
+
 const express = require('express');
-const fetch = require('node-fetch');
-const cors = require('cors'); 
+const cors = require('cors');
+const fetch = require('node-fetch'); // Vercel may need this explicit require
 
 const app = express();
 
+// --- CONFIGURATION - ADD YOUR SECRETS HERE ---
 const LOCAL_PRINTER_URL = 'https://2442d018d2fd.ngrok-free.app/print'; 
 const SECRET_KEY = 'dada-is-art'; 
 const GEMINI_API_KEY = "AIzaSyDB_pV1tmjiguKM9bSBu6xJyqQ-WaPBcwo";
 
-// This custom middleware manually sets the required headers for every request,
-// ensuring the browser's security checks (CORS) are always passed.
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', 'https://danhanaf.in');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  // If this is a preflight (OPTIONS) request, we send an immediate "OK" response.
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  next();
-});
+// --- THE FINAL CORS FIX IS HERE ---
+// This configuration explicitly tells the server how to handle permission checks (preflight requests).
 
+// 1. Define the "guest list" of allowed websites.
+const corsOptions = {
+  origin: 'https://danhanaf.in',
+};
+
+// 2. Explicitly handle the browser's "permission call" (the OPTIONS request).
+// This must come BEFORE your main route handler.
+app.options('/', cors(corsOptions));
+
+// 3. Use middleware for all other requests.
+app.use(cors(corsOptions));
 app.use(express.json());
 
-// Vercel routes any request to '/api/server' to this file. 
-// Therefore, our Express app inside this file should handle the root path '/'.
+// The main endpoint that the public website will call
 app.post('/', async (req, res) => {
     const { firstName, lastInitial, userPrompt } = req.body;
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -34,6 +38,7 @@ app.post('/', async (req, res) => {
     }
 
     try {
+        // Get User Location from their IP Address
         let location = 'An unknown location'; 
         if (ip) {
             const geoResponse = await fetch(`https://ipapi.co/${ip}/json/`);
@@ -45,6 +50,7 @@ app.post('/', async (req, res) => {
             }
         }
         
+        // Call Gemini AI to generate the art
         console.log('Calling Gemini API...');
         const systemPrompt = `
             **Objective:** You are a master ASCII artist. Your sole purpose is to create visual art using a limited set of text characters for a 42-character wide thermal receipt printer.
@@ -64,6 +70,7 @@ app.post('/', async (req, res) => {
         const artText = result.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!artText) throw new Error('AI did not return valid art.');
 
+        // Assemble the final text block to be printed
         const initCommand = Buffer.from([0x1b, 0x40]);
         const nameLine = `${firstName} ${lastInitial}.`;
         const locationLine = `from ${location}`;
@@ -72,6 +79,7 @@ app.post('/', async (req, res) => {
         
         const dataToSend = Buffer.concat([initCommand, Buffer.from(finalOutput)]);
 
+        // Securely send the job to your local printer server via the ngrok tunnel
         console.log('Sending print job to local server via ngrok...');
         const printResponse = await fetch(LOCAL_PRINTER_URL, {
             method: 'POST',
@@ -96,5 +104,6 @@ app.post('/', async (req, res) => {
     }
 });
 
+// This is required for Vercel to handle the routing correctly.
 module.exports = app;
 
