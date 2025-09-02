@@ -8,11 +8,24 @@ const LOCAL_PRINTER_URL = 'https://2442d018d2fd.ngrok-free.app/print';
 const SECRET_KEY = 'dada-is-art'; 
 const GEMINI_API_KEY = "AIzaSyDB_pV1tmjiguKM9bSBu6xJyqQ-WaPBcwo";
 
-// We can now use a simple CORS setup because vercel.json is handling the heavy lifting.
-app.use(cors());
+// This custom middleware manually sets the required headers for every request,
+// ensuring the browser's security checks (CORS) are always passed.
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', 'https://danhanaf.in');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  // If this is a preflight (OPTIONS) request, we send an immediate "OK" response.
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  next();
+});
+
 app.use(express.json());
 
-app.post('/api/server', async (req, res) => {
+// Vercel routes any request to '/api/server' to this file. 
+// Therefore, our Express app inside this file should handle the root path '/'.
+app.post('/', async (req, res) => {
     const { firstName, lastInitial, userPrompt } = req.body;
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
