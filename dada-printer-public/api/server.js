@@ -1,40 +1,31 @@
-// This is the "Waiter" server. It runs online, takes requests, talks to the AI,
-// and securely sends the final print job to your home server.
-
 const express = require('express');
-const fetch = require('node-fetch'); // Vercel may need this explicit require
+const fetch = require('node-fetch');
 
 const app = express();
 
-// --- CONFIGURATION - ADD YOUR SECRETS HERE ---
 const LOCAL_PRINTER_URL = 'https://2442d018d2fd.ngrok-free.app/print'; 
 const SECRET_KEY = 'dada-is-art'; 
 const GEMINI_API_KEY = "AIzaSyDB_pV1tmjiguKM9bSBu6xJyqQ-WaPBcwo";
 
-// --- THE FINAL, MANUAL CORS FIX IS HERE ---
-// This custom middleware manually sets the required headers for every request.
-// It will run BEFORE any other route handlers.
+// This custom middleware is our manual security gatekeeper.
+// It will run BEFORE any other code and explicitly approve requests from your website.
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', 'https://danhanaf.in');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  // If this is a preflight (OPTIONS) request, the browser is just asking for permission.
-  // We send an immediate "OK" response and stop processing.
+  // If the browser is making a "permission call" (an OPTIONS request),
+  // we send an immediate "OK" response and stop processing.
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-
-  // If it's not a preflight request, continue to the next middleware/route handler.
   next();
 });
 
-// We still need this to parse the JSON body of POST requests.
 app.use(express.json());
 
-// The main endpoint that the public website will call.
-// Note we removed the `cors()` package calls from here as we are handling it manually above.
-app.post('/', async (req, res) => {
+// Because of our rewrite rule, Vercel will send the request here.
+// The file path is /api/server.js, but the public route is /api/server
+app.post('/api/server', async (req, res) => {
     const { firstName, lastInitial, userPrompt } = req.body;
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
@@ -43,7 +34,6 @@ app.post('/', async (req, res) => {
     }
 
     try {
-        // Get User Location from their IP Address
         let location = 'An unknown location'; 
         if (ip) {
             const geoResponse = await fetch(`https://ipapi.co/${ip}/json/`);
@@ -55,7 +45,6 @@ app.post('/', async (req, res) => {
             }
         }
         
-        // Call Gemini AI to generate the art
         console.log('Calling Gemini API...');
         const systemPrompt = `
             **Objective:** You are a master ASCII artist. Your sole purpose is to create visual art using a limited set of text characters for a 42-character wide thermal receipt printer.
@@ -72,10 +61,9 @@ app.post('/', async (req, res) => {
         const aiApiResponse = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (!aiApiResponse.ok) throw new Error(`Gemini API Error: ${aiApiResponse.statusText}`);
         const result = await aiApiResponse.json();
-        const artText = result.candidates?[0]?.content?.parts?[0]?.text;
+        const artText = result.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!artText) throw new Error('AI did not return valid art.');
 
-        // Assemble the final text block to be printed
         const initCommand = Buffer.from([0x1b, 0x40]);
         const nameLine = `${firstName} ${lastInitial}.`;
         const locationLine = `from ${location}`;
@@ -84,7 +72,6 @@ app.post('/', async (req, res) => {
         
         const dataToSend = Buffer.concat([initCommand, Buffer.from(finalOutput)]);
 
-        // Securely send the job to your local printer server via the ngrok tunnel
         console.log('Sending print job to local server via ngrok...');
         const printResponse = await fetch(LOCAL_PRINTER_URL, {
             method: 'POST',
@@ -109,6 +96,5 @@ app.post('/', async (req, res) => {
     }
 });
 
-// This is required for Vercel to handle the routing correctly.
 module.exports = app;
 
