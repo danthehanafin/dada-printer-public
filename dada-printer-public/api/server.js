@@ -1,5 +1,6 @@
 const express = require('express');
 const fetch = require('node-fetch');
+const cors = require('cors'); 
 
 const app = express();
 
@@ -7,19 +8,11 @@ const LOCAL_PRINTER_URL = 'https://2442d018d2fd.ngrok-free.app/print';
 const SECRET_KEY = 'dada-is-art'; 
 const GEMINI_API_KEY = "AIzaSyDB_pV1tmjiguKM9bSBu6xJyqQ-WaPBcwo";
 
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', 'https://danhanaf.in');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  next();
-});
-
+// We can now use a simple CORS setup because vercel.json is handling the heavy lifting.
+app.use(cors());
 app.use(express.json());
 
-app.post('/', async (req, res) => {
+app.post('/api/server', async (req, res) => {
     const { firstName, lastInitial, userPrompt } = req.body;
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
